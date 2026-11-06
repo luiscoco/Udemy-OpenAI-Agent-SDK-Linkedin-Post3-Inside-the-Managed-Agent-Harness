@@ -11,6 +11,7 @@ from pathlib import Path
 
 from backends import DemoBackend, LiveBackend, action_key
 from domain import DATA, execute, month, validate_call, validate_final
+from console import fields, introduction, show_event, summary
 
 RUNS = Path(__file__).resolve().parent / "runs"
 TERMINAL = {"completed", "completed_without_report", "failed", "failed_validation", "cancelled"}
@@ -30,7 +31,7 @@ def emit(folder, event, **details):
     entry = {"at": datetime.now(timezone.utc).isoformat(), "type": "app." + event, **details}
     with (Path(folder) / "events.jsonl").open("a", encoding="utf-8") as log:
         log.write(json.dumps(entry) + "\n")
-    print(json.dumps(entry), flush=True)
+    show_event(event, details)
 
 
 def new_state(identifier, mode="demo", current="2026-10", previous="2026-09"):
@@ -179,12 +180,16 @@ def main():
             backend = LiveBackend() if args.mode == "live" else DemoBackend()
             state = new_state(args.id, args.mode, args.current, args.previous)
             save_state(folder, state)
+            introduction(state, args.command)
             emit(folder, "context.prepared", context=state["context"], mode=state["mode"])
         else:
             state = json.loads((folder/"state.json").read_text(encoding="utf-8"))
+            introduction(state, args.command)
             if args.command == "status":
-                print(json.dumps({k: state.get(k) for k in
-                      ("id", "mode", "status", "session_id", "pending", "verified_output", "validation_error")}, indent=2))
+                fields({k: state.get(k) for k in
+                        ("session_id", "pending", "verified_output", "validation_error")
+                        if state.get(k) is not None})
+                summary(state, folder)
                 return 0
             backend = LiveBackend() if state["mode"] == "live" else DemoBackend()
         if args.command == "cancel":
@@ -199,8 +204,7 @@ def main():
                 emit(folder, "cancellation.requested", status=state["status"])
         else:
             state = drive(state, backend, folder, getattr(args, "decision", None), args.wait_seconds)
-        print(f"Run: {state['id']} | Mode: {state['mode']} | Outcome: {state['status']}")
-        print("Files:", folder)
+        summary(state, folder)
         return 1 if state["status"] in {"failed", "failed_validation"} else 0
     except (ValueError, RuntimeError, OSError, KeyError) as exc:
         print("Error:", str(exc), file=sys.stderr)

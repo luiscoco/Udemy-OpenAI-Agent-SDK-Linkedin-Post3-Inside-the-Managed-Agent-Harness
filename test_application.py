@@ -157,8 +157,22 @@ class WorkflowTests(unittest.TestCase):
         for args in [("start", "--id", "process"), ("resume", "--id", "process", "--decision", "approve")]:
             result = subprocess.run([sys.executable, "-c", code, *args], cwd=root, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("RUN SUMMARY", result.stdout)
+            self.assertIn("no model or API calls", result.stdout)
+            if args[0] == "start":
+                self.assertIn("6. HUMAN APPROVAL | Pause before saving", result.stdout)
+                self.assertIn("python app.py resume --id process --decision approve", result.stdout)
+                self.assertIn("Current total: 1250.00", result.stdout)
+                self.assertNotIn('\\"current_total\\"', result.stdout)
+            else:
+                self.assertIn("CONTINUATION | Reload saved state", result.stdout)
+                self.assertIn("7. OUTCOME | Check the evidence", result.stdout)
         state = json.loads((self.folder/"process"/"state.json").read_text())
         self.assertEqual(state["status"], "completed")
+        events = [json.loads(line) for line in (self.folder/"process"/"events.jsonl").read_text().splitlines()]
+        self.assertEqual(events[0]["type"], "app.context.prepared")
+        finished = next(event for event in events if event["type"] == "app.tool.finished")
+        self.assertEqual(json.loads(finished["result"]["output"])["current_total"], "1250.00")
 
 
 class LiveContractTests(unittest.TestCase):

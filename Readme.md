@@ -60,6 +60,17 @@ Environment variables are read directly; `.env` files are not loaded. Never put 
 
 ## Run the application
 
+The console presents a numbered lesson walkthrough: context, session, tool request,
+execution, feedback, human approval, and outcome verification. Each step explains
+the application's responsibility. Tool results are displayed as readable fields,
+and the approval pause includes the exact commands to approve or reject the pending
+write. On resume, a continuation message shows the session and saved status.
+
+These labels describe observable application work, not hidden model reasoning.
+Demo mode is clearly marked as a scripted simulation. The complete timestamped
+JSON events remain in `runs/<id>/events.jsonl`; the console presentation does not
+change the saved event schema or the approval workflow.
+
 ### 1. Start the offline classroom demonstration
 
 ```powershell
